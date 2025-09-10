@@ -1,86 +1,155 @@
-ESP8266 LED Status via Docker (v2)
+# 📡 Projeto ESP8266 + PHP + MySQL (XAMPP)
 
-Este projeto permite que um ESP8266 envie o status de um LED (ON / OFF) para um servidor web em PHP, que armazena os dados em um banco MySQL. Todo o ambiente backend pode ser executado via Docker, incluindo phpMyAdmin para gerenciar o banco visualmente.
+Este projeto demonstra como enviar mensagens do ESP8266 para um banco de dados MySQL usando um servidor local (XAMPP) e PHP.
 
-📦 Estrutura do Projeto
-esp8266-led-status/
-├── docker-compose.yml       # Configuração dos containers Docker
-├── sql/
-│   └── init.sql             # Criação do banco e tabela
-└── www/
-    └── connect.php          # Script PHP que recebe os dados do ESP8266
+---
 
-🛠️ Requisitos
+## 1. 📋 Criar Banco de Dados e Tabela no MySQL
 
-Docker e Docker Compose instalados
+1. Acesse o phpMyAdmin:
+http://localhost/phpmyadmin
 
-ESP8266 (ex: NodeMCU)
+markdown
+Copiar código
+
+2. Crie um banco de dados chamado:
+esp_test
+
+pgsql
+Copiar código
+
+3. Execute a seguinte query SQL para criar a tabela `mensagens`:
+
+```sql
+CREATE TABLE mensagens (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    mensagem TEXT,
+    data_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+2. 📝 Criar o Script PHP
+Crie um arquivo chamado salvar_mensagem.php.
+
+Salve o arquivo no seguinte diretório:
+
+makefile
+Copiar código
+C:\xampp\htdocs\
+Conteúdo do arquivo salvar_mensagem.php:
+
+php
+Copiar código
+<?php
+$servername = "localhost";
+$username = "root";
+$password = "";
+$dbname = "esp_test";
+
+// Pega o valor da URL
+$mensagem = $_GET['mensagem'] ?? 'Sem mensagem';
+
+// Conecta ao MySQL
+$conn = new mysqli($servername, $username, $password, $dbname);
+
+// Checa conexão
+if ($conn->connect_error) {
+    die("Falha na conexão: " . $conn->connect_error);
+}
+
+// Insere no banco
+$sql = "INSERT INTO mensagens (mensagem) VALUES ('$mensagem')";
+
+if ($conn->query($sql) === TRUE) {
+    echo "Mensagem salva com sucesso";
+} else {
+    echo "Erro: " . $conn->error;
+}
+
+$conn->close();
+?>
+3. 📡 Código do ESP8266 (Arduino IDE)
+Código de exemplo para envio de mensagem ao servidor:
+
+cpp
+Copiar código
+#include <ESP8266WiFi.h>
+
+const char* ssid = "SEU_SSID";
+const char* password = "SUA_SENHA_WIFI";
+const char* host = "192.168.1.100"; // IP do seu PC com XAMPP
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  WiFi.begin(ssid, password);
+  Serial.print("Conectando ao Wi-Fi");
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("\nConectado ao Wi-Fi");
+}
+
+void loop() {
+  WiFiClient client;
+
+  if (client.connect(host, 80)) {
+    String url = "/salvar_mensagem.php?mensagem=Hello%20World";
+
+    client.print(String("GET ") + url + " HTTP/1.1\r\n" +
+                 "Host: " + host + "\r\n" +
+                 "Connection: close\r\n\r\n");
+
+    Serial.println("Mensagem enviada: Hello World");
+  } else {
+    Serial.println("Falha na conexão com o servidor");
+  }
+
+  delay(10000); // Espera 10 segundos
+}
+🧪 Testar PHP manualmente
+Você pode testar manualmente o script PHP pelo navegador:
+
+perl
+Copiar código
+http://localhost/salvar_mensagem.php?mensagem=Hello%20World
+Se tudo estiver funcionando corretamente, você verá a mensagem Mensagem salva com sucesso e o conteúdo será armazenado no banco de dados.
+
+✅ Requisitos
+XAMPP instalado e executando (Apache + MySQL)
+
+phpMyAdmin acessível em localhost
+
+ESP8266 (NodeMCU, por exemplo)
 
 Arduino IDE com suporte ao ESP8266
 
-🚀 Passo a Passo para Executar
-1. Configurar o Docker
+Conexão Wi-Fi ativa
 
-Na pasta do projeto (esp8266-led-status/), execute:
+📂 Estrutura Final do Projeto
+yaml
+Copiar código
+📁 C:\xampp\htdocs\
+  └── salvar_mensagem.php
 
-docker-compose up -d
+📁 Banco de Dados: esp_test
+  └── Tabela: mensagens (id, mensagem, data_hora)
 
+🔌 ESP8266
+  └── Envia GET request para o script PHP a cada 10 segundos
+🔒 Observações de Segurança
+Este é um projeto básico para fins de aprendizado. Em produção:
 
-Isso irá:
+Nunca insira dados diretamente no SQL sem sanitização (use prepared statements)
 
-Subir um container MySQL com banco esp8266_db e usuário espuser
+Implemente autenticação/autorização
 
-Subir um container PHP + Apache para servir o connect.php
+Utilize HTTPS para segurança na comunicação
 
-Subir phpMyAdmin para administração visual (porta 8081)
+🚀 Resultado Esperado
+O ESP8266 envia uma mensagem para o servidor PHP, que salva essa mensagem no banco de dados MySQL. A cada 10 segundos, uma nova entrada é adicionada com a mensagem "Hello World" e o timestamp atual.
 
-2. Acessar Serviços
-
-API do ESP8266: http://localhost:8080/connect.php
-
-phpMyAdmin: http://localhost:8081
-
-Usuário: espuser
-
-Senha: esppass
-
-⚠️ Se estiver rodando em outro computador na mesma rede, substitua localhost pelo IP da máquina que roda os containers.
-
-3. Configurar o ESP8266
-
-No arquivo ESP8266_LED_Status_Sender.ino:
-
-const char* ssid = "SEU-WIFI";
-const char* password = "SUA-SENHA";
-const char* serverName = "http://192.168.0.X:8080/connect.php"; // IP da máquina Docker
-
-
-Depois, faça upload para o ESP8266 via Arduino IDE.
-
-4. Testar o Envio
-
-O ESP8266 enviará o status do LED via HTTP POST:
-
-POST /connect.php
-Content-Type: application/x-www-form-urlencoded
-
-ledStatus=ON
-
-
-Você pode verificar os registros diretamente no phpMyAdmin ou via Serial Monitor do ESP8266.
-
-⚙️ Estrutura do Banco de Dados
-
-Tabela led_status:
-
-Campo	Tipo	Detalhes
-id	INT	AUTO_INCREMENT, PRIMARY KEY
-status	VARCHAR(10)	ON / OFF
-timestamp	DATETIME	Default CURRENT_TIMESTAMP
-📝 Notas
-
-Esta é a versão 2 do projeto.
-
-Futuras melhorias podem incluir autenticação, integração LORA e controle bidirecional do LED.
-
-Certifique-se de que a porta 8080 esteja liberada no firewall, caso acesse de outro dispositivo.
+go
+Copiar código
