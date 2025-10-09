@@ -28,12 +28,8 @@ Sistema completo de iluminação pública inteligente usando **ESP32**, **sensor
 - **Histórico** completo de operações
 - **API REST** para integração
 
-## 🚀 Demo
 
-### Dashboard Principal
-![Dashboard](https://via.placeholder.com/800x400/1e3c72/ffffff?text=Dashboard+Web+Responsivo)
-
-### Serial Monitor
+### Monitor Serial
 ```
 🚀 ESP32 Iluminação Inteligente com NTP
 ✅ WiFi conectado! IP: 192.168.1.100  
@@ -286,26 +282,14 @@ const long gmtOffset_sec = -3 * 3600;  // UTC-3 para Brasília
 - 📊 Analytics avançados
 - 🌐 Multi-idiomas
 
-## 📄 Licença
-
-Este projeto está sob a licença **MIT**. Veja [LICENSE](LICENSE) para mais detalhes.
 
 ## 👨‍💻 Autor
 
-**Seu Nome**
-- 🌐 Website: [seusite.com](https://seusite.com)
-- 📧 Email: seuemail@gmail.com
-- 🐙 GitHub: [@seuusername](https://github.com/seuusername)
-- 💼 LinkedIn: [Seu Nome](https://linkedin.com/in/seuusuario)
+**Matheus Santos**
+- 📧 Email: matheuseom04@gmail.com
+- 🐙 GitHub: [@Matheusbr04](https://github.com/Matheusbr04)
+- 💼 LinkedIn: [Matheus Santos](https://linkedin.com/in/matheus-santos-228582315)
 
-## 🙏 Agradecimentos
-
-- **Arduino Community** - Bibliotecas e exemplos
-- **ESP32** - Documentação oficial
-- **Chart.js** - Gráficos interativos
-- **XAMPP** - Stack de desenvolvimento local
-
----
 
 ### 📞 Suporte
 
