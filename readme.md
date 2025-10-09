@@ -1,168 +1,244 @@
-💡 ESP8266 com LDR e Envio de Status via PHP (v4)
+# 💡 Automação de Iluminação Inteligente com ESP32 e InfluxDB
 
-Na versão 4 deste projeto, o ESP8266 usa um sensor LDR para detectar quando o ambiente está escuro. Quando isso acontece, ele:
-
-- **Liga o LED**
-- **Envia uma mensagem para um servidor local com XAMPP** (PHP + MySQL)
+Este projeto demonstra como usar um microcontrolador **ESP32** para criar um **sistema de iluminação inteligente** que controla uma lâmpada halógena de 60 W em dois modos (Meia Luz e Luz Cheia) com base na **luminosidade ambiente** e na **detecção de movimento**.  
+O consumo de energia em cada modo é registrado em tempo real em um banco de dados **InfluxDB**.
 
 ---
 
-## ✅ Requisitos
+## 🚀 Funcionalidades
 
-### 🔧 Hardware
-- ESP8266 (NodeMCU, Wemos D1, etc.)
-- LDR (Sensor de luminosidade)
-- Resistor de 10kΩ para o divisor de tensão do LDR
-- LED + resistor (ex: 220Ω)
-- Cabos jumper
-
-### 🧰 Software
-- [XAMPP](https://www.apachefriends.org/)
-- Apache e MySQL ativos
-- Acesso ao `http://localhost/phpmyadmin`
-- Arduino IDE com suporte ao ESP8266
+- **Controle Inteligente:** Desliga a lâmpada durante o dia (quando há luz ambiente suficiente).  
+- **Modo Meia Luz (30 W):** Ativado automaticamente à noite quando **não há movimento**.  
+- **Modo Luz Cheia (60 W):** Ativado à noite quando o **sensor de presença detecta movimento**.  
+- **Monitoramento de Energia:** Envia o consumo de energia (**0 W**, **30 W** ou **60 W**) para o **InfluxDB** a cada 5 segundos.  
+- **Plataforma:** Projetado para **ESP32** (compatível com ESP8266 com pequenos ajustes).
 
 ---
 
-## 🔌 Esquema de Ligações
+## 🛠️ Requisitos de Hardware
 
-| Componente | Pino ESP8266 |
-|------------|--------------|
-| LDR (com resistor) | A0 |
-| LED (com resistor) | D1 (GPIO5) |
-
-> O LDR deve estar em um **divisor de tensão** com um resistor de 10kΩ entre o pino A0 e o GND.
-
----
-
-## 🧠 Lógica do Projeto
-
-1. O ESP8266 lê o valor do LDR (luminosidade).
-2. Se o valor for **abaixo de 400**, considera "escuro":
-   - Liga o LED.
-   - Envia uma única mensagem HTTP GET para o servidor PHP.
-3. Se estiver claro, desliga o LED e reseta o estado.
+| Componente | Quantidade | Observações |
+|-------------|-------------|--------------|
+| **ESP32** | 1 | Microcontrolador principal |
+| **Módulo Relé 2 Canais** | 1 | Deve suportar a tensão da lâmpada (220 V) |
+| **LDR (Resistor Dependente de Luz)** | 1 | Para leitura da luminosidade ambiente |
+| **Resistor 10 kΩ** | 1 | Para o divisor de tensão do LDR |
+| **Sensor de Presença (PIR)** | 1 | Sensor com saída digital/relé |
+| **Lâmpada Halógena 60 W (220 V)** | 1 | Lâmpada a ser controlada |
+| **Componente Limitador** | 1 | Necessário para criar o modo Meia Luz (ex: resistor de alta potência, reator, ou segunda lâmpada em série) |
 
 ---
 
-## 📋 Banco de Dados MySQL
+## 📌 Configuração de Hardware e Pinos
 
-Acesse [http://localhost/phpmyadmin](http://localhost/phpmyadmin) e crie o banco:
+| Função | Pino ESP32 | Tipo | Observações |
+|--------|-------------|------|--------------|
+| **Luz Cheia** | GPIO 27 | OUTPUT | Relé 1 — bypass do limitador para 60 W |
+| **Meia Luz** | GPIO 26 | OUTPUT | Relé 2 — liga a lâmpada através do limitador (30 W) |
+| **LDR** | GPIO 32 | ADC Input | Conectado em um divisor de tensão (3.3 V → LDR → R 10 k → GND) |
+| **Sensor PIR** | GPIO 34 | Input | Recebe sinal HIGH na detecção de movimento |
 
-```sql
-CREATE DATABASE esp_test;
+---
 
-USE esp_test;
+## 💻 Configuração do Software (Arduino IDE)
 
-CREATE TABLE mensagens (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    mensagem TEXT,
-    data_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-📝 Script PHP (salvar_mensagem.php)
-Salve esse arquivo em:
+### 1. Instalação de Bibliotecas
 
-makefile
-Copiar código
-C:\xampp\htdocs\salvar_mensagem.php
-php
-Copiar código
-<?php
-$servername = "localhost";
-$username = "root";
-$password = "";
-$dbname = "esp_test";
+Instale as bibliotecas abaixo pelo **Gerenciador de Bibliotecas**:
 
-$mensagem = $_GET['mensagem'] ?? 'Sem mensagem';
+- `WiFiMulti` *(inclusa no core do ESP32/ESP8266)*
+- `InfluxDbClient` *(por InfluxData)*
+- `InfluxDbCloud` *(por InfluxData)*
 
-$conn = new mysqli($servername, $username, $password, $dbname);
+---
 
-if ($conn->connect_error) {
-    die("Falha na conexão: " . $conn->connect_error);
-}
+### 2. Configuração de Credenciais
 
-$sql = "INSERT INTO mensagens (mensagem) VALUES ('$mensagem')";
+Antes de carregar o código, substitua as constantes pelas suas informações reais:
 
-if ($conn->query($sql) === TRUE) {
-    echo "Mensagem salva com sucesso";
-} else {
-    echo "Erro: " . $conn->error;
-}
+| Constante | Exemplo Atual | Descrição |
+|------------|----------------|------------|
+| `#define WIFI_SSID` | `"YOUR_WIFI_SSID"` | Nome da rede Wi-Fi |
+| `#define WIFI_PASSWORD` | `"YOUR_WIFI_PASSWORD"` | Senha da rede Wi-Fi |
+| `#define INFLUXDB_URL` | `"http://SEU_IP_AQUI:8086"` | URL do servidor InfluxDB |
+| `#define INFLUXDB_TOKEN` | `"SEU_TOKEN_AQUI"` | Token de Escrita no InfluxDB |
+| `#define INFLUXDB_ORG` | `"SUA_ORG_AQUI"` | Organização (ORG) no InfluxDB |
+| `#define INFLUXDB_BUCKET` | `"SEU_BUCKET_AQUI"` | Nome do Bucket no InfluxDB |
 
-$conn->close();
-?>
-📡 Código do ESP8266
-cpp
-Copiar código
-#include <ESP8266WiFi.h>
+---
 
-// === CONFIGURAÇÃO DO WIFI ===
-const char* ssid = "SEU-WIFI";
-const char* password = "SUA-SENHA";
-const char* host = "192.168.0.100"; // IP do PC com XAMPP
+### 3. Ajuste de Limiares (Thresholds)
 
-// === CONFIGURAÇÃO DO LDR E LED ===
-const int ldrPin = A0;       // LDR no pino analógico
-const int ledPin = D1;       // LED no pino digital D1 (GPIO5)
-const int darkThreshold = 400; // Abaixo disso é considerado escuro
+Os valores que definem o que é “claro” ou “escuro” dependem da sua montagem do LDR.
 
-bool ledLigado = false;      // Evita envios repetidos
+```cpp
+#define CLEAR_THRESHOLD 2000 // Se LDR > 2000, está claro e a lâmpada é desligada
+```
+
+> **Dica:**  
+> Carregue o código, abra o *Monitor Serial* e observe os valores do LDR em diferentes condições de luz.  
+> Ajuste o valor de `CLEAR_THRESHOLD` até encontrar o ponto ideal de transição.
+
+---
+
+## 📄 Código (main.ino)
+
+O código completo do projeto está abaixo:
+
+```cpp
+#if defined(ESP32)
+  #include <WiFiMulti.h>
+  WiFiMulti wifiMulti;
+  #define DEVICE "ESP32"
+#elif defined(ESP8266)
+  #include <ESP8266WiFiMulti.h>
+  ESP8266WiFiMulti wifiMulti;
+  #define DEVICE "ESP8266"
+#endif
+
+#include <InfluxDbClient.h>
+#include <InfluxDbCloud.h>
+
+// ----------------------------------------------------------------------
+// 1. DEFINIÇÕES GLOBAIS - ATUALIZE ESTES DADOS!
+// ----------------------------------------------------------------------
+
+#define WIFI_SSID "YOUR_WIFI_SSID" 
+#define WIFI_PASSWORD "YOUR_WIFI_PASSWORD"
+
+#define INFLUXDB_URL "http://YOUR_INFLUXDB_IP:8086"
+#define INFLUXDB_TOKEN "YOUR_INFLUXDB_TOKEN"
+#define INFLUXDB_ORG "YOUR_INFLUXDB_ORG"
+#define INFLUXDB_BUCKET "YOUR_BUCKET_NAME"
+
+#define TZ_INFO "UTC-3" // Fuso horário
+
+#define RELAY_FULL_LIGHT 27
+#define RELAY_HALF_LIGHT 26
+#define LDR_PIN          32
+#define PIR_BUTTON_PIN   34
+
+#define CLEAR_THRESHOLD  2000
+#define POWER_FULL_W     60.0
+#define POWER_HALF_W     30.0
+
+#define RELAY_ON         LOW
+#define RELAY_OFF        HIGH
+
+InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN, InfluxDbCloud2CACert);
+
+// ----------------------------------------------------------------------
+// 3. SETUP
+// ----------------------------------------------------------------------
 
 void setup() {
-  pinMode(ledPin, OUTPUT);
-  digitalWrite(ledPin, HIGH); // LED apagado inicialmente
-
   Serial.begin(115200);
-  delay(1000);
+  
+  pinMode(RELAY_FULL_LIGHT, OUTPUT);
+  pinMode(RELAY_HALF_LIGHT, OUTPUT);
+  digitalWrite(RELAY_FULL_LIGHT, RELAY_OFF);
+  digitalWrite(RELAY_HALF_LIGHT, RELAY_OFF);
 
-  WiFi.begin(ssid, password);
-  Serial.print("Conectando ao Wi-Fi");
+  pinMode(PIR_BUTTON_PIN, INPUT);
 
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
+  WiFi.mode(WIFI_STA);
+  wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
+
+  Serial.print("Connecting to WiFi");
+  while (wifiMulti.run() != WL_CONNECTED) {
     Serial.print(".");
+    delay(500);
   }
+  Serial.println("\nWiFi Connected.");
 
-  Serial.println("\nConectado ao Wi-Fi");
+  timeSync(TZ_INFO, "pool.ntp.org", "time.nis.gov");
+
+  if (client.validateConnection()) {
+    Serial.print("Connected to InfluxDB: ");
+    Serial.println(client.getServerUrl());
+  } else {
+    Serial.print("InfluxDB connection failed: ");
+    Serial.println(client.getLastErrorMessage());
+  }
 }
+
+// ----------------------------------------------------------------------
+// 4. LOOP - LÓGICA DO PROJETO
+// ----------------------------------------------------------------------
 
 void loop() {
-  int lightLevel = analogRead(ldrPin);
-  Serial.print("Nível de luz: ");
-  Serial.println(lightLevel);
+  if (wifiMulti.run() != WL_CONNECTED) {
+    Serial.println("WiFi connection lost. Reconnecting...");
+    delay(5000);
+    return;
+  }
 
-  if (lightLevel < darkThreshold) {
-    digitalWrite(ledPin, LOW); // Liga o LED
-    if (!ledLigado) {
-      ledLigado = true;
-      enviarMensagem();
+  int ldrValue = analogRead(LDR_PIN);
+  bool motionDetected = (digitalRead(PIR_BUTTON_PIN) == HIGH);
+
+  float currentPower = 0.0;
+  String lightMode = "OFF";
+
+  if (ldrValue > CLEAR_THRESHOLD) {
+    lightMode = "OFF";
+    digitalWrite(RELAY_FULL_LIGHT, RELAY_OFF);
+    digitalWrite(RELAY_HALF_LIGHT, RELAY_OFF);
+  } else {
+    if (motionDetected) {
+      lightMode = "FULL";
+      digitalWrite(RELAY_FULL_LIGHT, RELAY_ON);
+      digitalWrite(RELAY_HALF_LIGHT, RELAY_OFF);
+      currentPower = POWER_FULL_W;
+    } else {
+      lightMode = "HALF";
+      digitalWrite(RELAY_FULL_LIGHT, RELAY_OFF);
+      digitalWrite(RELAY_HALF_LIGHT, RELAY_ON);
+      currentPower = POWER_HALF_W;
     }
-  } else {
-    digitalWrite(ledPin, HIGH); // Desliga o LED
-    ledLigado = false;
   }
 
-  delay(500);
-}
+  if (lightMode != "OFF") {
+    Point powerData("power_consumption");
+    powerData.addTag("device", DEVICE);
+    powerData.addTag("mode", lightMode);
+    powerData.addField("power_watts", currentPower);
 
-void enviarMensagem() {
-  WiFiClient client;
-
-  if (client.connect(host, 80)) {
-    String url = "/salvar_mensagem.php?mensagem=LED%20ligado";
-
-    client.print(String("GET ") + url + " HTTP/1.1\r\n" +
-                 "Host: " + host + "\r\n" +
-                 "Connection: close\r\n\r\n");
-
-    Serial.println("Mensagem enviada: LED ligado");
-  } else {
-    Serial.println("Falha na conexão com o servidor");
+    if (!client.writePoint(powerData)) {
+      Serial.print("InfluxDB power data write failed: ");
+      Serial.println(client.getLastErrorMessage());
+    }
   }
-}
-🔍 Testar Manualmente (sem ESP)
-Abra no navegador:
 
-perl
-Copiar código
-http://localhost/salvar_mensagem.php?mensagem=Teste%20manual
+  Point ldrData("ambient_light");
+  ldrData.addTag("device", DEVICE);
+  ldrData.addField("ldr_raw", ldrValue);
+  client.writePoint(ldrData);
+
+  Serial.printf("LDR: %d | Motion: %s | Light Mode: %s | Power: %.1fW\n", 
+                ldrValue, motionDetected ? "YES" : "NO", lightMode.c_str(), currentPower);
+
+  delay(5000); 
+}
+```
+
+---
+
+## 📊 Visualização no InfluxDB / Grafana
+
+Você pode criar dashboards com:
+- **Gráfico de potência (W)**
+- **Status de operação (OFF / HALF / FULL)**
+- **Luminosidade (LDR raw)**
+
+Essas métricas permitem acompanhar o **comportamento automático da iluminação** e **otimizar o consumo de energia**.
+
+---
+
+## 🧩 Possíveis Extensões
+
+- Adicionar **MQTT** para integração com Home Assistant.  
+- Implementar **controle manual remoto** via painel web.  
+- Enviar notificações quando o consumo ultrapassar limites definidos.
+
+---
+
