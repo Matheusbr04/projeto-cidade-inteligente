@@ -223,15 +223,6 @@ void loop() {
 
 ---
 
-## 👨‍💻 Autor
-
-**Matheus Santos**
-- 📧 Email: matheuseom04@gmail.com
-- 🐙 GitHub: [@Matheusbr04](https://github.com/Matheusbr04)
-- 💼 LinkedIn: [Matheus Santos](https://linkedin.com/in/matheus-santos-228582315)
-
----
-
 ## 📊 Visualização no InfluxDB / Grafana
 
 Você pode criar dashboards com:
