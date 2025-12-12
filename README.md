@@ -7,6 +7,12 @@
 
 Sistema completo de iluminação pública inteligente usando **ESP32**, **sensores IoT**, **MySQL** e **dashboard web** em tempo real.
 
+## 🌟 Objetivo Principal
+
+O objetivo é **reduzir o consumo de energia** e os **custos de operação** da iluminação pública, mantendo a segurança e o conforto dos usuários por meio de controle automático de brilho com sensores de luminosidade e presença.
+
+---
+
 ## 🎯 Funcionalidades
 
 ### 🔧 Hardware
